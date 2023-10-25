@@ -145,7 +145,7 @@ pintos_init (void)
       readline(command,max_command_length); //delcaratoin of the function is right below.
       // printf(command); //Uncomment for debugging.
       if (strcmp(command, "whoami")==0){
-        printf("Chathura De Silva - 210098R");
+        printf("210695U - Weerasuriya W.P.A.T.D");
       }
       else if (strcmp(command, "ram")==0){
         printf("Pintos currently has %'"PRIu32" kB RAM.",
@@ -155,7 +155,7 @@ pintos_init (void)
             shutdown_power_off();
       }
        else if (strcmp(command, "time")==0){
-        printf("It's been  %d seconds now.", timer_ticks()/TIMER_FREQ); // Prints the time elapsed since boot. Timer ticks when divided by the tick frequency gives the answer in seconds.
+        printf("It's been  %d seconds now.", timer_ticks()/TIMER_FREQ);
       }
        else if (strcmp(command, "thread")==0){
         printf("Stats of current ");

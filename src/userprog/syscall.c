@@ -18,41 +18,36 @@
 #define USER_LOWER_BOUND 0x08048000
 
 static void syscall_handler (struct intr_frame *);
-//lock to read and write the files.
+// Lock to manage file operations.
 static struct lock filelock;
 
-
-//check if the pointer is valid
-//use the vaddr and the pagedir
-static void
-is_valid_ptr (const void *ptr)
+// Check if the pointer is valid using virtual addresses and the page directory.
+static void is_valid_ptr (const void *ptr)
 {
-  //check if the address is a valid user address uf add<PHY_BASE
+  // Check if the address is a valid user address (less than PHYS_BASE).
   if (!(is_user_vaddr (ptr) && ptr > (void *)USER_LOWER_BOUND)) {
     exit (-1);
   }
-  //no mapped physical address for the given addresses
+  // Ensure that there is a mapped physical address for the given user address.
   if (pagedir_get_page (thread_current ()->pagedir, ptr) == NULL) {
     exit (-1);
   }
 }
 
-//assign for the syscall interrupt
-void
-syscall_init (void) 
+// Initialize the system call handler.
+void syscall_init (void) 
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
   lock_init (&filelock);
 }
 
-//memory allocation is happened after validating the input
-static void
-syscall_handler (struct intr_frame *f) 
+// Handle system calls, including argument validation.
+static void syscall_handler (struct intr_frame *f) 
 {
-  /* get the syscall number from intr_frame */
+  // Get the syscall number from the interrupt frame.
   is_valid_ptr (f->esp);
   int num = *((int *)(f->esp));
-  //use these variables to get the arguements
+  // Variables to store syscall arguments.
   uint32_t arg0, arg1, arg2;
 
   switch (num)
@@ -148,22 +143,21 @@ syscall_handler (struct intr_frame *f)
   }
 }
 
-//implement the halt which power off the system
-void
-halt (void)
+// Implement the halt system call, which powers off the system.
+void halt (void)
 {
   shutdown_power_off ();
 }
 
-void
-exit (int status)
+// Handle the exit system call, including notifying the parent thread.
+void exit (int status)
 {
   struct thread *cur = thread_current ();
 
-  /* wait until parent info is set */
+  // Wait until parent info is set.
   sema_down (&cur->parent_sema);
 
-  //get the stored parent thrad of the courrent thread
+  // Get the stored parent thread of the current thread.
   tid_t parent_tid = cur->parent_tid;
   struct thread *parent_t = get_thread_from_tid (parent_tid);
   if (parent_t != NULL) {
@@ -171,8 +165,7 @@ exit (int status)
     struct list *child_list_of_par = &parent_t->child_list;
     struct list_elem *e;
 
-    //travrese the list and find the current thread
-  
+    // Traverse the list to find the current thread.
     for (e = list_begin (child_list_of_par); e != list_end (child_list_of_par);
          e = list_next (e)) {
       ch = list_entry (e, struct child, elem);
@@ -182,7 +175,7 @@ exit (int status)
 
     ASSERT (ch->child_tid == cur->tid);
 
-    //set the status and release the lock
+    // Set the status and release the lock.
     ch->status = status;
     sema_up (&ch->sema);
   }
@@ -190,22 +183,20 @@ exit (int status)
   thread_exit ();
 }
 
-//since excec means create a new process
-pid_t
-exec (const char *cmd_input)
+// Execute a new process (create a new process).
+pid_t exec (const char *cmd_input)
 {
   return process_execute (cmd_input);
 }
 
-int
-wait (pid_t pid)
+// Wait for a child process.
+int wait (pid_t pid)
 {
   return process_wait (pid);
 }
 
-
-bool
-remove (const char *file)
+// Remove a file from the file system.
+bool remove (const char *file)
 {
   if (file == NULL) {
     exit (-1);
@@ -217,8 +208,8 @@ remove (const char *file)
   return success;
 }
 
-bool
-create (const char *file, unsigned init_size)
+// Create a new file.
+bool create (const char *file, unsigned init_size)
 {
   if (file == NULL) {
     exit (-1);
@@ -230,8 +221,8 @@ create (const char *file, unsigned init_size)
   return success;
 }
 
-int
-open (const char *file)
+// Open a file.
+int open (const char *file)
 {
   if (file == NULL) {
     return -1;
@@ -247,12 +238,12 @@ open (const char *file)
     return -1;
   }
 
-  /* find empty entry in fd_table */
+  /* Find an empty entry in the fd_table. */
   for (fd = 2; fd < MAX_FD; fd++) {
     if (t->fd_table[fd] == NULL) break;
   }
   if (fd == MAX_FD) {
-    /* fd_table is full */
+    /* fd_table is full. */
     return -1;
   }
   else {
@@ -261,8 +252,8 @@ open (const char *file)
   }
 }
 
-int
-filesize (int fd)
+// Get the size of a file.
+int filesize (int fd)
 {
   if (fd >= MAX_FD || fd < 2) {
     return 0;
@@ -283,8 +274,8 @@ filesize (int fd)
   return length;
 }
 
-int
-read (int fd, void *buffer, unsigned size)
+// Read data from a file.
+int read (int fd, void *buffer, unsigned size)
 {
   if (fd >= MAX_FD || fd < 0) {
     return 0;
@@ -297,14 +288,14 @@ read (int fd, void *buffer, unsigned size)
   lock_acquire (&filelock);
   if (fd == 0) {
     while (read_cnt <= size) {
-      /* read key by input_getc() and write it into buffer at appropriate position */
+      /* Read a character by input_getc() and write it into the buffer at the appropriate position. */
       *(char *)(buffer + read_cnt++) = input_getc ();
     }
     lock_release (&filelock);
     return read_cnt;
   }
 
-  /* get file from fd */
+  /* Get the file from fd. */
   file = t->fd_table[fd];
   
   if (file == NULL) {
@@ -317,8 +308,8 @@ read (int fd, void *buffer, unsigned size)
   return (int)read_cnt;
 }
 
-int
-write (int fd, const void *buffer, unsigned size)
+// Write data to a file.
+int write (int fd, const void *buffer, unsigned size)
 {
   if (fd >= MAX_FD || fd < 0) {
     return 0;
@@ -335,7 +326,7 @@ write (int fd, const void *buffer, unsigned size)
     return write_cnt;
   }
 
-  /* get file from fd */
+  /* Get the file from fd. */
   file = t->fd_table[fd];
 
   if (file == NULL) {
@@ -348,8 +339,8 @@ write (int fd, const void *buffer, unsigned size)
   return write_cnt;
 }
 
-void
-seek (int fd, unsigned position)
+// Move the file position to the given offset.
+void seek (int fd, unsigned position)
 {
   if (fd >= MAX_FD || fd < 2) {
     return;
@@ -367,8 +358,8 @@ seek (int fd, unsigned position)
   lock_release (&filelock);
 }
 
-unsigned
-tell (int fd)
+// Get the current position in a file.
+unsigned tell (int fd)
 {
   if (fd >= MAX_FD || fd < 2) {
     return 0;
@@ -389,8 +380,8 @@ tell (int fd)
   return (unsigned) next;
 }
 
-void
-close (int fd)
+// Close a file.
+void close (int fd)
 {
   if (fd >= MAX_FD || fd < 0) {
     return;
